@@ -1,0 +1,187 @@
+CameraManager: A system service manager for detecting, characterizing, and connecting to CameraDevices.
+
+CameraCharacteristics: The properties describing a CameraDevice.
+These properties are primarily fixed for a given CameraDevice, and can be queried through the CameraManager interface with CameraManager#getCameraCharacteristics.
+ Beginning with API level 32, some properties such as SENSOR_ORIENTATION may change dynamically based on the state of the device.
+ Query the capabilities of a camera device. These capabilities are immutable for a given camera.
+ From API level 29, this function can also be used to query the capabilities of physical cameras that can only be used as part of logical multi-camera.
+ These cameras cannot be opened directly via openCamera(String, StateCallback, Handler)
+
+CameraDevice: The CameraDevice class is a representation of a single camera connected to an Android device, allowing for fine-grain control of image capture and post-processing at high frame rates.
+A given camera device may provide support at one of several levels defined in CameraCharacteristics.INFO_SUPPORTED.
+
+StateCallbacks:is an interface that is often used for asynchronous operations, especially when dealing with hardware resources like cameras. It provides callbacks for different states of an operation, allowing you to respond to events or errors as they occur.
+
+Surface: Handle onto a raw buffer that is being managed by the screen compositor.
+
+SurfaceView: Provides a dedicated drawing surface embedded inside of a view hierarchy. SurfaceView takes care of placing the surface at the correct
+ location on the screen
+
+TextureView: A TextureView can be used to display a content stream, such as that coming from a camera preview, a video, or an OpenGL scene.
+ The content stream can come from the application's process as well as a remote process.
+ TextureView can only be used in a hardware accelerated window. When rendered in software, TextureView will draw nothing.
+ Also it allows to render translated images and able to rotate while SurfaceView can't!!
+
+ImageReader: The ImageReader class allows direct application acess to image data rendered into the surface
+The image data is encapsulated in Image objects, and multiple such objects can be accessed at the same time, up to the number specified
+ by the maxImages constructor parameter.
+ New images sent to an ImageReader through its Surface are queued until accessed through the acquireLatestImage() or acquireNextImage() call.
+ Due to memory limits, an image source will eventually stall or drop Images in trying to render to the Surface if the ImageReader does not obtain and release Images at a rate equal to the production rate.
+
+CameraCaptureSession: A configured capture session for a CameraDevice, used for capturing images from the camera or reprocessing images captured
+ from the camera in the same session previously.
+Creating a session is an expensive operation and can take several hundred milliseconds,
+since it requires configuring the camera device's internal pipelines and allocating
+memory buffers for sending images to the desired targets. Therefore the setup is done asynchronously,
+and createCaptureSession and create. ReprocessableCaptureSession will send the ready-to-use CameraCaptureSession to the provided listener's onConfigured callback.
+If configuration cannot be completed, then the onConfigureFailed is called, and the session will not become active.
+
+
+CaptureRequest: An immutable package of settings and outputs needed to capture a single image from the camera device.
+Contains the configuration for the capture hardware(sensor, lens, flash), the processing pipeline, the control algorithms and the output buffers.
+Also contains the list of target surfaces to send image data to for this capture.
+CaptureRequests are given to capture and setRepeatingRequest to capture images from a camera.
+Each request can specify a different subset of target Surfaces for the camera to send the captured data to.
+All the surfaces used in a request must be part of the surface list given to the last call to CameraDevice#createCaptureSession,
+when the request is submitted to the session.
+Note: Capture requests are obtained by the builder design pattern!
+
+
+
+
+Architecture of CameraAPI:
+
+1.Initialize Required Objects:
+
+Get a reference to the CameraManager for managing camera devices.
+Create a TextureView or SurfaceView for displaying the camera preview.
+Set up permissions to access the camera in your AndroidManifest.xml and request runtime permissions.
+
+2.List All of the Cameras by IDs:
+
+Use the CameraManager to retrieve a list of available camera IDs using getCameraIdList().
+Iterate through the list of camera IDs to identify the available cameras.
+
+3.Open the Front Camera:
+
+Check each camera's characteristics (e.g., LENS_FACING) to determine if it's a front-facing camera.
+Use the CameraManager to open the desired camera device by its ID using openCamera(). Provide a CameraDevice.StateCallback
+to handle the camera device's lifecycle events.
+4.
+Configure Camera Capture Session:
+
+Once the camera device is opened, configure the camera capture session:
+Create a CameraCaptureSession by calling createCaptureSession() on the camera device.
+Specify the target surface (e.g., the TextureView or ImageReader surface) where the camera preview will be displayed or captured.
+Configure the capture request settings, such as preview size, format, and frame rate.
+Use the capture session to start previewing the camera feed.
+
+5.Handle Camera Device Callbacks:
+
+Implement the CameraDevice.StateCallback to handle camera device lifecycle events:
+onOpened(): Called when the camera device is successfully opened. Start the camera preview here.
+onDisconnected(): Called when the camera device is disconnected, usually due to an error.
+onError(): Called when an error occurs while working with the camera device.
+
+6.Display Camera Preview:
+
+Update the TextureView or other UI components to display the camera preview frames.
+You may need to handle the rotation of the preview frames based on the device's orientation.
+
+7.Capture Images or Record Video:
+
+To capture images, create a CaptureRequest with appropriate settings and call capture() on the capture session.
+To record video, configure the media recorder and create a recording CaptureRequest. Start recording using capture().
+
+8.Release Camera Resources:
+
+Ensure you release the camera resources properly by closing the camera device and capture session when your app no longer
+needs them or when the activity is paused or destroyed.
+
+/*
+*
+*
+*/
+
+
+Step 1: Initialize Required Objects
+
+In this step, we initialize the necessary objects and set up the initial configuration for the Camera2 API.
+
+TextureView textureView: This is a view component used to display the camera preview.
+
+CameraManager cameraManager: It's responsible for managing camera devices and their properties.
+
+CameraDevice cameraDevice: Represents the opened camera device.
+
+CameraCaptureSession cameraCaptureSession: Manages the capture session, which includes capturing images.
+
+CaptureRequest.Builder captureRequestBuilder: Used to build capture requests for the camera.
+
+Handler backgroundHandler: A background thread handler for camera operations.
+
+HandlerThread backgroundThread: A background thread for camera operations.
+
+REQUEST_CAMERA_PERMISSION: An integer constant used to request camera permissions.
+
+Step 2: Create TextureView.SurfaceTextureListener (textureListener)
+
+This listener is associated with the TextureView and handles events related to the TextureView.
+
+onSurfaceTextureAvailable: This method is called when the TextureView becomes available. It triggers the openCamera method to initialize and open the camera.
+
+onSurfaceTextureDestroyed: This method is called when the TextureView is destroyed, such as when the activity is paused or stopped. It calls the closeCamera method to release camera resources.
+
+Step 3: Open the Camera (openCamera())
+
+This method initializes and opens the camera device:
+
+cameraManager.getCameraIdList(): Retrieves a list of available camera IDs.
+
+cameraManager.openCamera(): Opens the camera device using the specified camera ID.
+
+Permission handling: It checks whether the app has camera permissions (Manifest.permission.CAMERA). If permission is granted, it opens the camera. If not, it requests camera permissions from the user using ActivityCompat.requestPermissions.
+
+Step 4: Handle CameraDevice State (CameraDevice.StateCallback)
+
+This callback is responsible for handling changes in the camera device's state:
+
+onOpened: Called when the camera device is successfully opened. It sets up the camera preview by calling createCameraPreview.
+
+onDisconnected: Called when the camera device is disconnected. It closes the camera device.
+
+onError: Called when there is an error with the camera device. It also closes the camera device.
+
+Step 5: Create Camera Preview (createCameraPreview())
+
+This method sets up the camera preview:
+
+textureView.getSurfaceTexture(): Retrieves the SurfaceTexture from the TextureView.
+
+texture.setDefaultBufferSize(): Sets the default buffer size of the SurfaceTexture.
+
+Surface surface: Creates a Surface from the SurfaceTexture.
+
+captureRequestBuilder: Creates a capture request builder for preview and sets the target surface to the Surface.
+
+cameraCaptureSession.createCaptureSession(): Creates a camera capture session for the preview.
+
+Step 6: Update Camera Preview (updatePreview())
+
+This method updates the camera preview by setting the control mode to AUTO and sending a repeating capture request to the camera capture session.
+
+Step 7: Close the Camera (closeCamera())
+
+This method closes the camera device if it is open.
+
+Step 8: Handle Activity Lifecycle (onResume() and onPause())
+
+onResume(): Starts the background thread for camera operations and opens the camera if the TextureView is already available.
+
+onPause(): Closes the camera and stops the background thread when the activity is paused.
+
+Step 9: Manage Background Thread (startBackgroundThread() and stopBackgroundThread())
+
+These methods are used to manage the background thread for camera operations.
+
+Step 10: Handle Permission Request (onRequestPermissionsResult())

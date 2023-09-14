@@ -1,0 +1,100 @@
+
+/*
+package com.mobile.viewcam.old;
+
+import android.Manifest;
+import android.annotation.SuppressLint;
+import android.content.pm.PackageManager;
+import android.os.Bundle;
+import android.view.View;
+import android.widget.ImageView;
+import android.widget.Toast;
+
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.camera.view.PreviewView;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+import androidx.lifecycle.LifecycleOwner;
+
+import com.mobile.viewcam.R;
+
+public class MainActivity extends AppCompatActivity implements LifecycleOwner
+{
+    public String IPAdress = "";
+    public static final int PORT = 8181;
+
+    private CameraManager cam;
+    private NetworkManager net;
+
+    private PreviewView camView;
+    private ImageView imger;
+
+    @SuppressLint("UnsafeOptInUsageError")
+    @Override
+    protected void onCreate(Bundle savedInstanceState)
+    {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+        // Check internet & wifi connection
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.INTERNET) != PackageManager.PERMISSION_GRANTED)
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, 101);
+
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_NETWORK_STATE) != PackageManager.PERMISSION_GRANTED)
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, 102);
+
+        // Check Camera permission
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED)
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, 103);
+
+
+        //Check if the device has camera
+        if(!getApplicationContext().getPackageManager().hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY))
+            return;
+
+        //Set layouts
+        camView = findViewById(R.id.camView);
+        imger = findViewById(R.id.imger);
+
+        //Initialize objects
+        net = new NetworkManager(imger);
+        cam = new CameraManager(this,camView);
+    }
+
+    @Override
+    protected void onStart()
+    {
+        super.onStart();
+        cam.BindAnalyzer(net.getAnalyzer());
+        cam.Start();
+    }
+
+    @Override
+    protected void onResume()
+    {
+        super.onResume();
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+
+        if (requestCode == 103) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                Toast.makeText(this, "Camera permission allowed", Toast.LENGTH_SHORT).show();
+            } else {
+                Toast.makeText(this, "For using the application, you should allow camera usage!", Toast.LENGTH_LONG).show();
+            }
+        }
+    }
+
+    public void FlipBtn_click(View view)
+    {
+        cam.ToggleFace();
+    }
+
+}
+
+
+ */
