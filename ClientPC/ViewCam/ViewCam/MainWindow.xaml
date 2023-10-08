@@ -5,9 +5,10 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:ViewCam"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800" ResizeMode="NoResize" WindowStyle="SingleBorderWindow" WindowState="Normal" Closed="Window_Closed">
+        Title="MainWindow" Height="450" Width="800" ResizeMode="NoResize" WindowStyle="SingleBorderWindow" WindowState="Normal" Loaded="Window_Loaded" Closed="Window_Closed">
     <Grid>
-        <Image x:Name="ImageControl"/>
+        <Image x:Name="ImageControl" Width="Auto" Height="Auto"/>
+        <TextBlock x:Name="ImageDrops" FontSize="30" Text="Image drop:" Foreground="Red"/>
         <TextBlock x:Name="ConnectionStatus" x:FieldModifier="public" Text="Not connected" FontSize="22" VerticalAlignment="Bottom" HorizontalAlignment="Right"/>
     </Grid>
 </Window>
