@@ -1,17 +1,27 @@
 package com.mobile.viewcam;
 
+import android.annotation.SuppressLint;
+import android.content.Context;
 import android.icu.util.Output;
+import android.net.wifi.WifiInfo;
+import android.net.wifi.WifiManager;
 import android.util.Log;
+import android.widget.Toast;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.Inet4Address;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
+import java.net.SocketTimeoutException;
 
 public class NetworkManager {
+
+    //region variables
+
     private static final String TAG = "NetworkManager";
 
     private static final int PORT = 8181;
@@ -19,14 +29,24 @@ public class NetworkManager {
 
     private boolean connected = false;
 
+    static WifiManager wiMan;
     private ServerSocket server;
     private Socket client;
 
     private InputStream in;
     private OutputStream out;
 
-    public NetworkManager()
+    private Context context;
+
+    //endregion
+
+    //region Constructors
+
+    public NetworkManager(Context context)
     {
+        this.context = context;
+        wiMan  = (WifiManager) context.getSystemService(Context.WIFI_SERVICE);
+
         try {
             server = new ServerSocket(PORT);
             IP = server.getInetAddress().getHostAddress();
@@ -41,6 +61,10 @@ public class NetworkManager {
                 "connect...");
     }
 
+    //endregion
+
+    //region Methods
+
     public void ListenClient()
     {
         new Thread(new Runnable() {
@@ -49,7 +73,9 @@ public class NetworkManager {
                 try {
                     client = server.accept();
                     getClientIO();
-                } catch (IOException e) {
+                }
+                catch (SocketTimeoutException ignored){}
+                catch (IOException e) {
                     connected = false;
                     e.printStackTrace();
                     return;
@@ -72,6 +98,36 @@ public class NetworkManager {
         Log.i(TAG,"The server has been closed!");
     }
 
+    //endregion
+
+    //region Setters
+
+    //endregion
+
+    //region Getters
+
+    public static boolean isWifiEnabled()
+    {
+        return (wiMan == null && wiMan.isWifiEnabled());
+    }
+
+    @SuppressLint("DefaultLocale")
+    public String getLocalIP()
+    {
+        if(isWifiEnabled())
+            return "";
+
+        WifiInfo wiInfo = wiMan.getConnectionInfo();
+
+        int ip = wiInfo.getIpAddress();
+
+        return String.format("%d.%d.%d.%d",
+                (ip & 0xff),
+                (ip >> 8 & 0xff),
+                (ip >> 16 & 0xff),
+                (ip >> 24 & 0xff));
+    }
+
     private void getClientIO() throws IOException {
         in = client.getInputStream();
         out = client.getOutputStream();
@@ -82,14 +138,10 @@ public class NetworkManager {
         return imageSender;
     }
 
-    /*
-    *
-    *
-    * Callbacks
-    *
-    *
-    * */
 
+    //endregion
+
+    //region Callback
     private final CameraManager.ImageSocket imageSender = new CameraManager.ImageSocket()
     {
         @Override
@@ -113,4 +165,5 @@ public class NetworkManager {
         }
     };
 
+    //endregion
 }

@@ -10,6 +10,7 @@ import androidx.lifecycle.LifecycleOwner;
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
 import android.graphics.SurfaceTexture;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
@@ -17,6 +18,7 @@ import android.view.SurfaceView;
 import android.view.TextureView;
 import android.view.View;
 import android.widget.ImageView;
+import android.widget.TextView;
 import android.widget.Toast;
 
 public class MainActivity extends AppCompatActivity implements LifecycleOwner
@@ -26,8 +28,9 @@ public class MainActivity extends AppCompatActivity implements LifecycleOwner
     CameraManager camMan;
     NetworkManager netMan;
 
-    private SurfaceView surfaceView;
     private TextureView camView;
+
+    private TextView adressArea;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -36,33 +39,42 @@ public class MainActivity extends AppCompatActivity implements LifecycleOwner
 
         // Check internet & wifi connection
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.INTERNET) != PackageManager.PERMISSION_GRANTED)
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, 101);
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.INTERNET}, 101);
 
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_NETWORK_STATE) != PackageManager.PERMISSION_GRANTED)
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, 102);
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_NETWORK_STATE}, 102);
+
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_WIFI_STATE) != PackageManager.PERMISSION_GRANTED)
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_WIFI_STATE}, 103);
 
         // Check Camera permission
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED)
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, 103);
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, 104);
 
         // Check if the device has a camera
         if (!getApplicationContext().getPackageManager().hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY))
             return;
 
         camView = findViewById(R.id.camView); // Initialize camView here
-        surfaceView = findViewById(R.id.surView);
+        adressArea = findViewById(R.id.IPArea);
 
         // Create an instance of CameraManager and pass the TextureView
         camMan = new CameraManager(this, camView);
         camView.setSurfaceTextureListener(camMan.getTextureListener());
 
-        netMan = new NetworkManager();
+        netMan = new NetworkManager(this);
     }
 
+    @SuppressLint("SetTextI18n")
     @Override
     protected void onStart()
     {
         super.onStart();
+
+        String localIP = netMan.getLocalIP();
+
+        adressArea.setText("IP Address: " + localIP);
+
     }
 
     @Override

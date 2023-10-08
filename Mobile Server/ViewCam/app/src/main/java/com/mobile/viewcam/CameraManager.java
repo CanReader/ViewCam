@@ -5,19 +5,30 @@ import static android.content.Context.CAMERA_SERVICE;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Canvas;
 import android.graphics.ImageFormat;
+import android.graphics.Rect;
 import android.graphics.SurfaceTexture;
+import android.graphics.YuvImage;
 import android.hardware.camera2.*;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.media.Image;
 import android.media.ImageReader;
+import android.os.Build;
+import android.os.Debug;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.util.Log;
 import android.util.Size;
 import android.view.Surface;
+import android.view.SurfaceView;
 import android.view.TextureView;
 
+import androidx.annotation.NonNull;
+
+import java.io.ByteArrayOutputStream;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -26,6 +37,8 @@ import java.util.Comparator;
 import java.util.List;
 
 public class CameraManager {
+
+    //region Variables
     private static final String TAG = "CameraManager";
 
     private String camID;
@@ -34,10 +47,11 @@ public class CameraManager {
     private final TextureView textureView;
     private Size previewSize;
 
-    private CameraDevice cameraDevice;
-    private CameraCaptureSession cameraCaptureSession;
-    private CaptureRequest.Builder captureRequestBuilder;
     private android.hardware.camera2.CameraManager cameraManager;
+    private CameraDevice cameraDevice;
+    private CaptureRequest.Builder captureRequestBuilder;
+    private CameraCaptureSession cameraCaptureSession;
+    private ImageReader imgReader;
 
 
     private Handler backgroundHandler;
@@ -45,22 +59,24 @@ public class CameraManager {
 
     private ImageSocket imgSocket;
 
+    //endregion
 
-    ImageReader imgReader;
-
+    //region Constructors
     public CameraManager(Context context, TextureView textureView) {
         this.context = context;
         this.textureView = textureView;
     }
+    //endregion
 
+    //region Methods
     @SuppressLint("MissingPermission")
     /*
     * Setup camera and set orientations
     * */
     public boolean setupCamera(int width,int height) {
         cameraManager = (android.hardware.camera2.CameraManager) context.getSystemService(CAMERA_SERVICE);
-
-        imgReader = ImageReader.newInstance(width,height, ImageFormat.JPEG,1);
+        ////32 256 34 35 36 37
+        imgReader = ImageReader.newInstance(width,height, ImageFormat.JPEG,2);
         imgReader.setOnImageAvailableListener(ImageReaderListener,backgroundHandler);
 
         try {
@@ -72,6 +88,7 @@ public class CameraManager {
 
             StreamConfigurationMap map =
                     characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
+
 
             int deviceOrientation =
                     ((Activity)context).getWindowManager().getDefaultDisplay().getRotation();
@@ -88,8 +105,10 @@ public class CameraManager {
                 RotationH = width;
             }
 
-            previewSize = chooseOptimalSize(map.getOutputSizes(SurfaceTexture.class),RotationW,
-                    RotationH);
+
+            if (map != null)
+                previewSize = chooseOptimalSize(map.getOutputSizes(SurfaceTexture.class),RotationW,
+                        RotationH); //720 1448
 
         } catch (CameraAccessException e) {
             e.printStackTrace();
@@ -121,12 +140,16 @@ public class CameraManager {
 
         try {
             SurfaceTexture texture = textureView.getSurfaceTexture();
-            texture.setDefaultBufferSize(previewSize.getWidth(), previewSize.getHeight());
+
+            if (texture != null)
+                texture.setDefaultBufferSize(previewSize.getWidth(), previewSize.getHeight());
+
             Surface surface = new Surface(texture);
 
             CameraCharacteristics cameraCharacteristics = getCameraCharacteristics(cameraManager.getCameraIdList()[1]);
 
             captureRequestBuilder = cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+            //noinspection DataFlowIssue
             int sensorOrientation = cameraCharacteristics.get(CameraCharacteristics.SENSOR_ORIENTATION);
             int deviceRotation =
                     ((Activity)context).getWindowManager().getDefaultDisplay().getRotation();
@@ -140,7 +163,7 @@ public class CameraManager {
             cameraDevice.createCaptureSession(Arrays.asList(surface,imgReader.getSurface()),
                     new CameraCaptureSession.StateCallback() {
                 @Override
-                public void onConfigured(CameraCaptureSession session) {
+                public void onConfigured(@NonNull CameraCaptureSession session) {
                     if (cameraDevice == null)
                         return;
                     cameraCaptureSession = session;
@@ -148,7 +171,7 @@ public class CameraManager {
                 }
 
                 @Override
-                public void onConfigureFailed(CameraCaptureSession session) {
+                public void onConfigureFailed(@NonNull CameraCaptureSession session) {
                     Log.d("Camera2App", "onConfigureFailed");
                 }
             }, null);
@@ -196,6 +219,7 @@ public class CameraManager {
 
     private int sensorToDeviceRotation(CameraCharacteristics characteristic, int Orientation)
     {
+        //noinspection DataFlowIssue
         int sensorOri = characteristic.get(CameraCharacteristics.SENSOR_ORIENTATION);
         return (sensorOri + Orientation + 360)%360;
     }
@@ -216,38 +240,28 @@ public class CameraManager {
             return outputSizes[0];
     }
 
-    /*
-    *
-    * SETTER METHODS!
-    *
-    * */
+    //endregion
 
+    //region Setters
     public void setImageSocket(ImageSocket imageSocket)
     {
         imgSocket = imageSocket;
     }
 
-    /*
-    *
-    * GETTER METHODS!
-    *
-    * */
+    //endregion
 
+    //region Getters
     public TextureView.SurfaceTextureListener getTextureListener() {return textureListener;}
 
     private CameraCharacteristics getCameraCharacteristics(String id) throws CameraAccessException {
         return cameraManager.getCameraCharacteristics(id);
     }
+    //endregion
 
-    /*
-
-    Callbacks
-
-    */
-
+    //region Callback
     private final TextureView.SurfaceTextureListener textureListener = new TextureView.SurfaceTextureListener() {
         @Override
-        public void onSurfaceTextureAvailable(SurfaceTexture surface, int width, int height)
+        public void onSurfaceTextureAvailable(@NonNull SurfaceTexture surface, int width, int height)
         {
             if(setupCamera(width, height))
             {
@@ -258,38 +272,38 @@ public class CameraManager {
         }
 
         @Override
-        public void onSurfaceTextureSizeChanged(SurfaceTexture surface, int width, int height)
+        public void onSurfaceTextureSizeChanged(@NonNull SurfaceTexture surface, int width, int height)
         {
             Log.d(TAG, "Oops, surface size has been changed!!!");
         }
 
         @Override
-        public boolean onSurfaceTextureDestroyed(SurfaceTexture surface) {
+        public boolean onSurfaceTextureDestroyed(@NonNull SurfaceTexture surface) {
             Log.e("Tag","The surface has been destroyed!");
             closeCamera();
             return false;
         }
 
         @Override
-        public void onSurfaceTextureUpdated(SurfaceTexture surface) {
+        public void onSurfaceTextureUpdated(@NonNull SurfaceTexture surface) {
         }
     };
 
     private final CameraDevice.StateCallback stateCallback = new CameraDevice.StateCallback() {
         @Override
-        public void onOpened(CameraDevice camera) {
+        public void onOpened(@NonNull CameraDevice camera) {
             if(cameraDevice == null)
                 cameraDevice = camera;
             createCameraPreview();
         }
 
         @Override
-        public void onDisconnected(CameraDevice camera) {
+        public void onDisconnected(@NonNull CameraDevice camera) {
             cameraDevice.close();
         }
 
         @Override
-        public void onError(CameraDevice camera, int error) {
+        public void onError(@NonNull CameraDevice camera, int error) {
             cameraDevice.close();
             cameraDevice = null;
         }
@@ -304,31 +318,22 @@ public class CameraManager {
 
             if(image != null)
             {
-                ByteBuffer buffer = image.getPlanes()[0].getBuffer();
+                byte[] imageArray = ImageUtils.getImageArray(image);
 
-                byte[] bytes = new byte[buffer.remaining()];
-                buffer.get(bytes);
+                if(imageArray == null)
+                    Log.e(TAG,"Failed to convert image format! The format: " + image.getFormat());
 
-                //So we filled bytes array, now we are going to send these bytes via socket, for
-                // this we are going to use a callback method from NetworkManager!
-                if(imgSocket != null)
-                    imgSocket.Run(bytes);
-
-
+                if(imgSocket != null && imageArray != null)
+                    imgSocket.Run(imageArray);
             }
 
-            image.close();
+            if(image != null)
+                image.close();
         }
     };
+    //endregion
 
-    /*
-    *
-    *
-    * CLASSES!
-    *
-    *
-    * */
-
+    //region Classes
     public interface ImageSocket
     {
         void Run(byte[] data);
@@ -341,4 +346,49 @@ public class CameraManager {
             return Long.signum(((long) s1.getWidth() *s1.getWidth())/((long) s2.getWidth() *s2.getWidth()));
         }
     }
+
+    private static class ImageUtils
+    {
+        public static byte[] getImageArray(Image image)
+        {
+            byte[] data = null;
+            if(image.getFormat() == ImageFormat.JPEG)
+            {
+                Image.Plane[] planes = image.getPlanes();
+                ByteBuffer buffer = planes[0].getBuffer();
+                data = new byte[buffer.capacity()];
+                buffer.get(data);
+            }
+            else if(image.getFormat() == ImageFormat.YUV_420_888)
+            {
+                data = NV21toJpeg(YUV_420_888toNV21(image),image.getWidth(), image.getHeight());
+            }
+
+            return data;
+        }
+
+        public static byte[] YUV_420_888toNV21(Image image)
+        {
+            byte[] nv21 = null;
+            ByteBuffer yBuffer = image.getPlanes()[0].getBuffer();
+            ByteBuffer uvBuffer = image.getPlanes()[2].getBuffer();
+
+            nv21 = new byte[yBuffer.remaining() + uvBuffer.remaining()];
+
+            yBuffer.get(nv21, 0, yBuffer.remaining());
+
+            uvBuffer.get(nv21, yBuffer.remaining(), uvBuffer.remaining());
+
+            return nv21;
+        }
+
+        public static byte[] NV21toJpeg(byte[] data, int width, int height)
+        {
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            YuvImage yuv = new YuvImage(data,ImageFormat.NV21,width,height,null);
+            yuv.compressToJpeg(new Rect(0,0,width,height),100,out);
+            return out.toByteArray();
+        }
+    }
+    //endregion
 }

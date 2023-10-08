@@ -17,16 +17,10 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"/>
 
-        <SurfaceView
-            android:id="@+id/surView"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:visibility="invisible"/>
-
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="20px">
+            android:layout_marginTop="5px">
 
             <Button
                 android:id="@+id/FlipBtn"
@@ -50,6 +44,15 @@
                 android:layout_marginEnd="30px"
                 android:text="Mirror" />
         </LinearLayout>
+
+        <TextView
+            android:id="@+id/IPArea"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="26sp"
+            android:layout_marginTop="120px"
+            android:textColor="#ff3344"
+            android:text="IP ADRESS: "/>
 
 
     </FrameLayout>
