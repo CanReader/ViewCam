@@ -9,8 +9,10 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Markup;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Threading;
 using ViewCam.Src;
 
 namespace ViewCam
@@ -25,8 +27,11 @@ namespace ViewCam
 
         Thread Starter;
         Thread Communicator;
+        Thread Network;
 
-        private byte[] ImageByte;
+        private byte[] buffer;
+
+        private BitmapImage image;
 
         #region Properties
         private bool _connected = false;
@@ -52,7 +57,7 @@ namespace ViewCam
                 _dropped = value;
                 Dispatcher.Invoke(() => 
                 {
-                    ImageDrops.Text = "Image drop: " + value.ToString();
+                    ImageDrops.Text = "Corrupted images: " + value.ToString();
                 });
             }
         }
@@ -62,8 +67,7 @@ namespace ViewCam
         {
             InitializeComponent();
             Connected = false;
-            //client = new TcpClient();
-
+            
             Starter = new Thread(() =>
             {
                 NativeMethods.StartApp();
@@ -73,13 +77,16 @@ namespace ViewCam
             {
                 Start();
             });
-            //ListenServerAsync();
+
         }
 
         #region STARTER&STOPPER
         private void Start()
         {
             int readBytes = 0;
+
+            MemoryStream memStream = new MemoryStream();
+
             try
             {
                 while (true)
@@ -93,17 +100,31 @@ namespace ViewCam
 
                     if (readBytes == 0)
                         continue;
+                    else
+                    DroppedImages = readBytes;
 
-                    ImageByte = new byte[readBytes];
+                    buffer = new byte[readBytes];
 
-                    Marshal.Copy(ptr,ImageByte,0,readBytes);
+                    Marshal.Copy(ptr, buffer, 0,readBytes);
+
+                    if (!IsJpeg(buffer))
+                        continue;
+
+                        memStream.Write(buffer, 0, readBytes);
+                        memStream.Seek(0, SeekOrigin.Begin);
+
+                        image = CreateImage(memStream);
+
+                        memStream.Seek(0, SeekOrigin.Begin);
+
+                    image.Freeze();
                     
-                    BitmapImage image = CreateImage(ImageByte, readBytes);
+                    memStream.SetLength(0);
 
                     //Don't skip if the image is jpeg or not broken!
                     if (image != null)
                     {
-                        DisplayImage(CreateImage(ImageByte, readBytes));
+                        DisplayImage(image);
                     }
                 }
             }
@@ -118,6 +139,7 @@ namespace ViewCam
         {
             if (client != null && stream != null)
             {
+                if(Network != null)Network.Abort();
                 client.Close();
                 stream.Close();
             }
@@ -126,6 +148,11 @@ namespace ViewCam
             Communicator.Abort();
             Starter.Abort();
             Application.Current.Shutdown();
+        }
+
+        private void StartNetwork()
+        {
+            ListenServerAsync();
         }
         #endregion
 
@@ -139,14 +166,13 @@ namespace ViewCam
         }
         private BitmapImage CreateImage(byte[] buffer, int length)
         {
-            if (!IsJpeg(buffer))
+            if (!IsJpeg(buffer) || length <= 0)
                 return null;
 
             BitmapImage image = new BitmapImage();
 
             using (MemoryStream memstream = new MemoryStream(buffer))
             {
-
                 memstream.SetLength(0);
                 memstream.Write(buffer, 0, length);
                 memstream.Seek(0, SeekOrigin.Begin);
@@ -159,12 +185,24 @@ namespace ViewCam
             return image;
         }
 
+        private BitmapImage CreateImage(MemoryStream memStream)
+        {
+            image = new BitmapImage();
+            image.BeginInit();
+            image.CacheOption = BitmapCacheOption.OnLoad;
+            image.StreamSource = memStream;
+            image.EndInit();
+
+            return image;
+        }
+        
         private void DisplayImage(BitmapImage image)
         {
-            Application.Current.Dispatcher.Invoke(() =>
+            image.Freeze();
+            this.Dispatcher.Invoke(new Action(() =>
             {
                 ImageControl.Source = image;
-            });
+            }),DispatcherPriority.Render,null);
         }
         #endregion
 
@@ -180,37 +218,34 @@ namespace ViewCam
 
                 if (stream == null)
                     continue;
-
                 try
                 {
                     int defaultSize = 1024000;
-                    byte[] buffer = new byte[defaultSize];
                     int readBytes = 0;
+                    
+                    byte[] buffer = new byte[defaultSize];
+                    
                     readBytes = await stream.ReadAsync(buffer, 0, defaultSize);
 
-                    if (readBytes <= 0 || !IsJpeg(buffer))
-                    {
-                        DroppedImages = DroppedImages + 1;
+                    if (!IsJpeg(buffer) || readBytes <= 0)
                         continue;
-                    }
 
-                    using (MemoryStream ms = new MemoryStream())
+                    using (MemoryStream memStream = new MemoryStream())
                     {
-                        ms.SetLength(0);
-                        ms.Write(buffer, 0, readBytes);
-                        ms.Seek(0,SeekOrigin.Begin);
 
-                        BitmapImage bit = new BitmapImage();
-                        bit.BeginInit();
-                        bit.CacheOption = BitmapCacheOption.OnLoad;
-                        bit.StreamSource = ms;
-                        bit.EndInit();
+                        memStream.SetLength(0);
+                        memStream.Write(buffer, 0, readBytes);
+                        memStream.Seek(0, SeekOrigin.Begin);
 
-                        Dispatcher.Invoke(() => 
-                        {
-                            ImageControl.Source = bit;
-                        });
+                    image = CreateImage(memStream);
+
+                        memStream.Seek(0, SeekOrigin.Begin);
                     }
+
+                    Dispatcher.Invoke(new Action(() =>
+                    {
+                        ImageControl.Source = image;
+                    }));
                 }
                 catch (SocketException e)
                 {
@@ -227,11 +262,11 @@ namespace ViewCam
             }
         }
 
-
         private async Task ConnectServerAsync()
         {
             try
             {
+                client = new TcpClient();
                 await client.ConnectAsync(IPAddress.Parse(IP), port);
                 stream = client.GetStream();
                 ChangeConnectivityThreaded(true);
@@ -261,6 +296,7 @@ namespace ViewCam
         {
             Starter.Start();
             Communicator.Start();
+            //StartNetwork();
         }
 
         private void Window_Closed(object sender, EventArgs e)

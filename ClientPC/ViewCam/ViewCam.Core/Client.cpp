@@ -28,7 +28,10 @@ void Client::Connect()
 	if (m_server == -1)
 	{
 		std::string str = "Failed to connect server! Error code: " + std::to_string(WSAGetLastError());
+#ifdef DEBUG
 		InfoBox(str.c_str());
+#endif
+
 		closesocket(m_client);
 		return;
 	}

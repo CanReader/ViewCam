@@ -10,8 +10,6 @@
 #include <memory>
 #include <sstream>
 
-
-
 #define EXPORT extern "C" __declspec(dllexport)
 
 
