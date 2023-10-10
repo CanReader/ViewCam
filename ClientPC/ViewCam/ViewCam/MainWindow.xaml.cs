@@ -91,41 +91,42 @@ namespace ViewCam
             {
                 while (true)
                 {
+                    //Check the connection
                     Connected = NativeMethods.IsConnected();
 
+                    //If not connected, escape
                     if (!Connected)
                         continue;
 
+                    //Get image bytes from the dll
                     IntPtr ptr = NativeMethods.GetImageBytes(out readBytes);
 
-                    if (readBytes == 0)
-                        continue;
-                    else
-                    DroppedImages = readBytes;
-
+                    //Initialize the buffer with size of readBytes
                     buffer = new byte[readBytes];
 
+                    //Copy data from dllimport variable to the buffer
                     Marshal.Copy(ptr, buffer, 0,readBytes);
 
+                    //Escape if it is not jpeg bytes
                     if (!IsJpeg(buffer))
                         continue;
 
-                        memStream.Write(buffer, 0, readBytes);
-                        memStream.Seek(0, SeekOrigin.Begin);
+                    //Clear the memory stream
+                        memStream.SetLength(0);
 
+                    //Write the buffer to memory for converting  them to BitmapImage object
+                        memStream.Write(buffer, 0, readBytes);
+                    //Set the position of stream to first element
+                        memStream.Seek(0, SeekOrigin.Begin);
+                    //Create the image by the bytes
                         image = CreateImage(memStream);
 
+                    //Set the position of stream to first element
                         memStream.Seek(0, SeekOrigin.Begin);
-
-                    image.Freeze();
                     
-                    memStream.SetLength(0);
-
                     //Don't skip if the image is jpeg or not broken!
                     if (image != null)
-                    {
                         DisplayImage(image);
-                    }
                 }
             }
             catch (ThreadAbortException e)
@@ -134,6 +135,8 @@ namespace ViewCam
             {
                 MessageBox.Show(e.Message + "\n" + e.StackTrace, "Error");
             }
+
+            memStream.Close();
         }
         private new void Close()
         {
@@ -183,6 +186,22 @@ namespace ViewCam
             }
 
             return image;
+        }
+
+        private byte[] GetBytes()
+        {
+            int readBytes = 0;
+
+            //Get image bytes from the dll
+            IntPtr ptr = NativeMethods.GetImageBytes(out readBytes);
+
+            //Initialize the buffer with size of readBytes
+            byte[] buffer = new byte[readBytes];
+
+            //Copy data from dllimport variable to the buffer
+            Marshal.Copy(ptr, buffer, 0, readBytes);
+
+            return buffer;
         }
 
         private BitmapImage CreateImage(MemoryStream memStream)
